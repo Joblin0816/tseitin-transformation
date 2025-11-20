@@ -151,6 +151,6 @@ int main() {
         }
     });
 
-    std::cout << "✅ Crow server running at: http://localhost:18080\n";
+    std::cout << "✅ NEW CPP VERSION RUNNING — Auto deploy works! \n";
     app.port(18080).multithreaded().run();
 }
