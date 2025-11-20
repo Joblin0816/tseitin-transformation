@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tseitin transformation of propositional logic formulas</title>
+
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.min.js"></script>
+
+
+  <style>
+
+    :root{
+      --bg: #0d1117;
+      --panel: #0f1620;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --border: #2b3137;
+      --btn-bg: #0b66ff;       
+      --btn-text: #ffffff;
+      --btn-ghost-bg: #12171c;
+      --btn-ghost-border: #283036;
+      --node-fill: #07111a;
+      --node-stroke: #bcd8ff;
+      --node-text: #e6edf3;
+      --examples-bg: #0b1220;
+      --examples-hover: #12202a;
+    }
+
+    body:not(.light) ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    body:not(.light) ::-webkit-scrollbar-track {
+        background: #111822;
+    }
+
+    body:not(.light) ::-webkit-scrollbar-thumb {
+        background: #3a4450;
+        border-radius: 6px;
+    }
+
+    body:not(.light) ::-webkit-scrollbar-thumb:hover {
+        background: #5b6b7a;
+    }
+    
+    body.light ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    body.light ::-webkit-scrollbar-track {
+        background: #e6edf5;
+    }
+
+    body.light ::-webkit-scrollbar-thumb {
+        background: #b6c2d4;
+        border-radius: 6px;
+    }
+
+    body.light ::-webkit-scrollbar-thumb:hover {
+        background: #94a2b8;
+    }
+
+    body.light {
+      --bg: #f1f5f9;
+      --panel: #ffffff;
+      --text: #0b1220;
+      --muted: #606772;
+      --border: #e2e8f0;
+      --btn-bg: #0d6efd;
+      --btn-text: #ffffff;
+      --btn-ghost-bg: #ffffff;
+      --btn-ghost-border: #e6eef9;
+      --node-fill: #dceeff;     
+      --node-stroke: #0b3d91;    
+      --node-text: #0b1220;
+      --examples-bg: #ffffff;
+      --examples-hover: #f1f5f9;
+    }
+
+    body { margin:0; padding:20px; background:var(--bg); color:var(--text); font-family: "Segoe UI", Roboto, Arial, sans-serif; transition: background .18s, color .18s; }
+    .wrap { max-width:1300px; margin:0 auto; }
+    h1 { font-size:20px; margin:0 0 6px 0; }
+    p { color:var(--muted); margin:0 0 14px 0; }
+
+    .top-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+    .lang-switch { display:flex; gap:8px; align-items:center; }
+    .lang-switch button {
+      border:none; background:transparent; color:var(--text);
+      padding:6px 8px; border-radius:6px; font-weight:600; cursor:pointer;
+    }
+    .lang-switch button.active { background:var(--btn-bg); color:var(--btn-text); box-shadow:0 4px 10px rgba(11,102,255,0.14); }
+
+
+    #theme-toggle {
+      width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+      background:var(--panel); border:1px solid var(--border); cursor:pointer; color:var(--text);
+    }
+
+    #editor { width:100%; height:140px; border-radius:8px; border:1px solid var(--border); background:var(--panel); }
+    .controls { display:flex; gap:10px; align-items:center; margin-top:12px; margin-bottom:12px; }
+    .controls .flex-spacer { flex:1; }
+
+    #output-row { display:flex; gap:20px; flex-wrap:wrap; margin-top:18px; }
+    #graph-box, #cnf-box {
+      background:var(--panel); border-radius:8px; border:1px solid var(--border);
+      padding:16px; min-width:400px; min-height:420px; flex:1 1 48%;
+      display:flex; flex-direction:column; resize:both; overflow:auto;
+    }
+    #graph-toolbar, #cnf-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+    #graph-title, #cnf-title { font-weight:700; color:var(--muted); font-size:16px; margin-bottom:6px; }
+
+    #graph-wrap { flex:1; overflow:auto; border-radius:6px; background:transparent; position:relative; touch-action: none; }
+    #graph-container {
+    width: 100%;
+    height: 100%;
+    user-select: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;      
+    overflow: visible;
+    transform-origin: 50% 50% !important;
+    }
+
+    #graph-container svg {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    #cnf-text { flex:1; white-space:pre-wrap; font-family:Consolas, monospace; font-size:14px; color:var(--text); background:transparent; border:none; padding:6px; overflow:auto; }
+
+    .btn-primary { background:var(--btn-bg); color:var(--btn-text); border:none; }
+    .btn-secondary { background:var(--btn-ghost-bg); color:var(--btn-text); border:1px solid var(--btn-ghost-border); }
+    .btn-outline-light { background:transparent; color:var(--text); border:1px solid var(--border); }
+
+    .examples-dropdown { position:relative; display:inline-block; }
+    .examples-toggle { min-width:140px; }
+    .examples-menu {
+      position:absolute; top:110%; left:0; z-index:120; display:none;
+      background:var(--examples-bg); border:1px solid var(--border); border-radius:8px; min-width:220px; max-height:320px; overflow:auto; box-shadow:0 10px 30px rgba(0,0,0,0.15);
+    }
+    .examples-menu button { width:100%; text-align:left; padding:10px 12px; border:none; background:transparent; color:var(--text); cursor:pointer; }
+    .examples-menu button:hover { background:var(--examples-hover); }
+
+    .highlight-node circle { stroke:#00bfff !important; stroke-width:3px !important; filter:drop-shadow(0 0 8px rgba(0,191,255,0.6)); }
+    .monaco-highlight { background-color: rgba(0,150,255,0.16); border-radius:3px; }
+
+
+    button.btn-sm { font-size:13px; padding:4px 10px; }
+
+    #graph-wrap { cursor: grab; }
+    #graph-wrap.dragging { cursor: grabbing; }
+
+
+    @media(max-width:1000px){ #graph-box,#cnf-box{ flex:1 1 100%; min-width:100%; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-toolbar">
+      <div>
+        <h1 id="title">Tseitin transformation of propositional logic formulas</h1>
+        <p id="instructions">Type formulas. Use shortcuts like <code>\and</code>, <code>\or</code>, <code>\neg</code>, <code>\to</code>, <code>\iff</code>.</p>
+      </div>
+
+
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="lang-switch" aria-hidden="false">
+          <button data-lang="SK">SK</button>
+          <button data-lang="UA">UA</button>
+          <button data-lang="EN" class="active">EN</button>
+        </div>
+        <div id="theme-toggle" title="Toggle theme">🌙</div>
+      </div>
+    </div>
+
+
+    <div id="editor"></div>
+
+
+    <div class="controls">
+      <button id="parseBtn" class="btn btn-primary">Parse & Visualize</button>
+      <button id="clearBtn" class="btn btn-primary">Clear</button>
+
+
+      <div class="examples-dropdown">
+        <button id="examplesToggle" class="btn btn-primary examples-toggle">📚 Examples ▾</button>
+        <div id="examplesMenu" class="examples-menu" role="menu" aria-hidden="true"></div>
+      </div>
+
+
+      <div class="flex-spacer"></div>
+      <small style="color:var(--muted)">Shortcuts: \and => ∧, \or => ∨, \neg => ¬, \to => →, \iff => ↔</small>
+    </div>
+
+
+    <div id="output-row">
+      <div id="graph-box">
+        <div id="graph-title">AST Tree</div>
+        <div id="graph-toolbar">
+          <button id="zoomIn" class="btn btn-sm btn-outline-light">🔍 Zoom In (+) </button>
+          <button id="zoomOut" class="btn btn-sm btn-outline-light">🔍 Zoom Out (−)</button>
+          <button id="refreshGraph" class="btn btn-sm btn-outline-light">🔄 Refresh</button>
+          <button id="downloadAST" class="btn btn-sm btn-outline-light">💾 Download AST</button>
+          <button id="fullscreenToggle" class="btn btn-sm btn-outline-light">⛶ Full Screen</button>
+        </div>
+        <div id="graph-wrap"><div id="graph-container"></div></div>
+      </div>
+
+
+      <div id="cnf-box">
+        <div id="cnf-toolbar" style="align-items:flex-start;">
+          <div id="cnf-title">Tseitin CNF Output</div>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button id="copyCNF" class="btn btn-sm btn-outline-light">📋 Copy CNF</button>
+            <button id="downloadCNF" class="btn btn-sm btn-outline-light">⬇ Download CNF</button>
+          </div>
+        </div>
+        <pre id="cnf-text">(waiting for formula...)</pre>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+  
+const langTexts = {
+  EN:{ parse:"Parse & Visualize", clear:"Clear", examples:"Examples ▾", ast:"AST Tree", cnf:"Tseitin CNF Output", copy:"📋 Copy CNF", download:"⬇ Download CNF" },
+  SK:{ parse:"Spracovať a zobraziť", clear:"Vymazať", examples:"Príklady ▾", ast:"Strom AST", cnf:"Výstup Tseitin CNF", copy:"📋 Kopírovať CNF", download:"⬇ Stiahnuť CNF" },
+  UA:{ parse:"Розібрати та візуалізувати", clear:"Очистити", examples:"Приклади ▾", ast:"Дерево AST", cnf:"Вивід Tseitin CNF", copy:"📋 Копіювати CNF", download:"⬇ Завантажити CNF" }
+};
+
+const themeToggle = document.getElementById('theme-toggle');
+const langBtns = document.querySelectorAll('.lang-switch button');
+const root = document.body;
+let monacoEditor = null;
+let lastMermaid = ''; 
+let nodeRanges = [];
+let monacoDecorations = [];
+let scale = 1.0;               
+const graphWrap = document.getElementById('graph-wrap');
+const graphContainer = document.getElementById('graph-container');
+
+if (!mermaid.reset) {
+  mermaid.reset = () => {
+    try {
+      const cache = document.querySelectorAll('.mermaid');
+      cache.forEach(el => (el.innerHTML = ''));
+    } catch (err) {
+      console.warn('Mermaid reset error:', err);
+    }
+  };
+}
+
+function setTheme(mode) {
+    document.body.classList.toggle("light", mode === "light");
+    themeToggle.textContent = mode === "light" ? "☀️" : "🌙";
+    localStorage.setItem("theme", mode);
+
+    if (monacoEditor)
+        monaco.editor.setTheme(mode === "light" ? "vs" : "vs-dark");
+
+    if (!lastMermaid) return;
+
+    const container = document.getElementById("graph-container");
+    container.innerHTML = "";
+
+    if (mermaid.reset) try { mermaid.reset(); } catch {}
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            renderMermaid(lastMermaid);  
+        });
+    });
+}
+
+const fullscreenBtn = document.getElementById('fullscreenToggle');
+const graphBox = document.getElementById('graph-box');
+
+function toggleFullScreen() {
+  if (!document.fullscreenElement &&
+      !document.webkitFullscreenElement &&
+      !document.mozFullScreenElement &&
+      !document.msFullscreenElement) {
+    // Enter fullscreen
+    if (graphBox.requestFullscreen) graphBox.requestFullscreen();
+    else if (graphBox.webkitRequestFullscreen) graphBox.webkitRequestFullscreen();
+    else if (graphBox.mozRequestFullScreen) graphBox.mozRequestFullScreen();
+    else if (graphBox.msRequestFullscreen) graphBox.msRequestFullscreen();
+  } else {
+    // Exit fullscreen
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const isFull = !!document.fullscreenElement;
+  fullscreenBtn.textContent = isFull ? '🗗 Exit Full Screen' : '⛶ Full Screen';
+  fullscreenBtn.classList.toggle('btn-primary', isFull);
+  fullscreenBtn.classList.toggle('btn-outline-light', !isFull);
+});
+
+fullscreenBtn.onclick = toggleFullScreen;
+
+function applyLanguage(lang){
+  const t = langTexts[lang] || langTexts.EN;
+  document.getElementById('parseBtn').textContent = t.parse;
+  document.getElementById('clearBtn').textContent = t.clear;
+  document.getElementById('examplesToggle').textContent = "📚 " + t.examples;
+  document.getElementById('graph-title').textContent = t.ast;
+  document.getElementById('cnf-title').textContent = t.cnf;
+  document.getElementById('copyCNF').textContent = t.copy;
+  document.getElementById('downloadCNF').textContent = t.download;
+  langBtns.forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  localStorage.setItem('lang', lang);
+}
+
+const savedTheme = localStorage.getItem('theme') || 'dark';
+const savedLang  = localStorage.getItem('lang') || 'EN';
+setTheme(savedTheme);
+applyLanguage(savedLang);
+
+
+langBtns.forEach(b => b.onclick = () => applyLanguage(b.dataset.lang));
+themeToggle.onclick = () => setTheme(root.classList.contains('light') ? 'dark' : 'light');
+
+/* ---------- Examples ---------- */
+const examplesList = [
+  {name:"Simple AND", formula:"(p ∧ q)"},
+  {name:"Implication", formula:"(p → q)"},
+  {name:"Biconditional", formula:"(p ↔ q)"},
+  {name:"Nested AND/OR", formula:"((p ∧ q) ∨ (r ∧ s))"},
+  {name:"Implication Chain", formula:"((p → q) ∧ (q → r)) → (p → r)"},
+  {name:"De Morgan’s Law", formula:"¬(p ∧ q) ↔ (¬p ∨ ¬q)"},
+  {name:"Complex Mix", formula:"(((p ∧ q) ∨ (r ∧ s)) ∧ ((t ∨ u) → (v ↔ w)))"},
+  {name:"Tautology", formula:"((p → q) ∧ p) → q"},
+  {name:"CNF Form", formula:"((p ∨ ¬q) ∧ (r ∨ s) ∧ (¬t ∨ u))"}
+];
+
+function buildExamplesMenu(){
+  const menu = document.getElementById('examplesMenu');
+  menu.innerHTML = '';
+  for(const ex of examplesList){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = ex.name;
+    btn.onclick = (e) => {
+      e.preventDefault();
+      if(monacoEditor) monacoEditor.setValue(ex.formula);
+      else document.getElementById('editor').value = ex.formula;
+      menu.style.display = 'none';
+      setTimeout(()=>document.getElementById('parseBtn').click(), 120);
+    };
+    menu.appendChild(btn);
+  }
+}
+
+document.getElementById('examplesToggle').addEventListener('click', (e) => {
+  const menu = document.getElementById('examplesMenu');
+  menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+});
+
+document.addEventListener('click', (e)=> {
+  const menu = document.getElementById('examplesMenu');
+  const toggle = document.getElementById('examplesToggle');
+  if (!toggle.contains(e.target) && !menu.contains(e.target)) menu.style.display = 'none';
+});
+buildExamplesMenu();
+
+require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+
+require(['vs/editor/editor.main'], function() {
+  monacoEditor = monaco.editor.create(document.getElementById('editor'), {
+    value: "((p→q)∧(¬p∨q))",
+    language: "plaintext",
+    theme: (root.classList.contains('light') ? 'vs' : 'vs-dark'),
+    fontSize: 15,
+    minimap: { enabled: false },
+    automaticLayout: true,
+    wordWrap: "on",
+    padding: { top: 8, bottom: 8 }
+  });
+
+  // replacement rules
+  const replRules = [
+    { pattern: /\\and/g, to:'∧' },
+    { pattern: /\\or/g,  to:'∨' },
+    { pattern: /\\neg/g, to:'¬' },
+    { pattern: /\\to/g,  to:'→' },
+    { pattern: /\\iff/g, to:'↔' }
+  ];
+
+  monacoEditor.onDidChangeModelContent(() => {
+    const model = monacoEditor.getModel();
+    if(!model) return;
+    const text = model.getValue();
+    const matches = [];
+    for(const r of replRules){
+      let m;
+      while((m = r.pattern.exec(text)) !== null){
+        matches.push({ start: m.index, end: m.index + m[0].length, to: r.to });
+      }
+    }
+    if(!matches.length) return;
+    matches.sort((a,b) => b.start - a.start);
+    const edits = matches.map(match => {
+      const s = model.getPositionAt(match.start);
+      const e = model.getPositionAt(match.end);
+      return { range: new monaco.Range(s.lineNumber, s.column, e.lineNumber, e.column), text: match.to };
+    });
+    const sel = monacoEditor.getSelections();
+    model.pushEditOperations(sel, edits, () => sel);
+  });
+
+  monacoEditor.onMouseMove(e => {
+    if(!nodeRanges || !nodeRanges.length) return;
+    const pos = e.target.position;
+    if(!pos) return;
+    const offset = monacoEditor.getModel().getOffsetAt(pos);
+    document.querySelectorAll('g.node').forEach(n => n.classList.remove('highlight-node'));
+    const nodes = document.querySelectorAll('g.node');
+    for(const n of nodes){
+      const s = n.getAttribute('data-start');
+      const en = n.getAttribute('data-end');
+      if(s == null || en == null) continue;
+      const si = parseInt(s,10), ei = parseInt(en,10);
+      if(offset >= si && offset <= ei){
+        n.classList.add('highlight-node');
+        break;
+      }
+    }
+  });
+});
+
+function highlightInMonaco(start, end) {
+  if (!monacoEditor) return;
+  const model = monacoEditor.getModel();
+  if (!model) return;
+  const startPos = model.getPositionAt(start);
+  const endPos = model.getPositionAt(end + 1);
+  monacoDecorations = monacoEditor.deltaDecorations(monacoDecorations, [{
+    range: new monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
+    options: { inlineClassName: 'monaco-highlight' }
+  }]);
+}
+
+function clearMonacoHighlight() {
+  if (monacoEditor)
+    monacoDecorations = monacoEditor.deltaDecorations(monacoDecorations, []);
+}
+
+async function renderMermaid(diagramText) {
+ 
+  const container = document.getElementById('graph-container');
+  container.innerHTML = '';
+  lastMermaid = diagramText; 
+
+  if (window.mermaid?.reset) try { mermaid.reset(); } catch {}
+
+  const isLight = document.body.classList.contains("light");
+
+  mermaid.initialize({
+      startOnLoad: false,
+      theme: isLight ? "neutral" : "dark",
+      themeVariables: {
+          primaryColor: isLight ? "#ffffff" : "#07111a",
+          primaryBorderColor: isLight ? "#0b3d91" : "#bcd8ff",
+          primaryTextColor: isLight ? "#0b1220" : "#e6edf3",
+          lineColor: isLight ? "#0b3d91" : "#bcd8ff",
+          nodeTextColor: isLight ? "#0b1220" : "#e6edf3",
+          secondaryColor: isLight ? "#e6f0ff" : "#0f1620",
+          tertiaryColor: isLight ? "#f8fbff" : "#0d1117"
+      },
+      flowchart: {
+          useMaxWidth: true,
+          nodeSpacing: 40,
+          rankSpacing: 45
+      }
+  });
+
+  const el = document.createElement('div');
+  el.className = 'mermaid';
+  el.textContent = diagramText;
+  container.appendChild(el);
+
+  try {
+    await mermaid.run({ nodes: [el] });
+    setTimeout(centerAST, 30);   
+  } catch (err) {
+    container.innerHTML = `<div style="color:red">Mermaid render error: ${err.message || err}</div>`;
+    return;
+  }
+
+  const labelMap = new Map();
+  for (const r of nodeRanges || []) {
+    const lbl = (r.label || '').replace(/['"]/g, '').trim();
+    if (!labelMap.has(lbl)) labelMap.set(lbl, []);
+    labelMap.get(lbl).push({ start: r.start, end: r.end });
+  }
+  for (const arr of labelMap.values()) arr.sort((a, b) => a.start - b.start);
+
+  const nodes = el.querySelectorAll('g.node');
+  nodes.forEach(node => {
+    const textEl = node.querySelector('text, tspan, foreignObject, div, span');
+    const label = (textEl?.textContent || '').trim().replace(/['"]/g, '');
+    const data = labelMap.has(label) && labelMap.get(label).length ? labelMap.get(label).shift() : null;
+    if (data) {
+      node.dataset.start = data.start;
+      node.dataset.end = data.end;
+    }
+
+    node.addEventListener('mouseenter', () => {
+      node.classList.add('highlight-node');
+      if (data) highlightInMonaco(data.start, data.end);
+    });
+    node.addEventListener('mouseleave', () => {
+      node.classList.remove('highlight-node');
+      clearMonacoHighlight();
+    });
+  });
+
+const graphWrap = document.getElementById('graph-wrap');
+const graphContainer = document.getElementById('graph-container');
+let zoomLevel = 1;
+
+function centerAST() {
+    const wrap = graphWrap;
+    const svg = graphContainer.querySelector("svg");
+    if (!wrap || !svg) return;
+
+    const bbox = svg.getBBox();
+    const realWidth = bbox.width * zoomLevel;
+    const realHeight = bbox.height * zoomLevel;
+
+    wrap.scrollLeft = Math.max(0, (realWidth - wrap.clientWidth) / 2);
+    wrap.scrollTop  = Math.max(0, (realHeight - wrap.clientHeight) / 2);
+}
+
+function applyZoom() {
+    graphContainer.style.transformOrigin = "50% 50%";
+    graphContainer.style.transform = `scale(${zoomLevel})`;
+    setTimeout(centerAST, 0);
+}
+
+document.getElementById('zoomIn').onclick = () => {
+    zoomLevel = Math.min(3.0, zoomLevel + 0.1);
+    applyZoom();
+};
+
+document.getElementById('zoomOut').onclick = () => {
+    zoomLevel = Math.max(0.4, zoomLevel - 0.1);
+    applyZoom();
+};
+
+  console.log(`Rendered ${nodes.length} nodes (${nodeRanges.length} ranges)`);
+  attachEditorHoverSync();
+}
+
+function attachEditorHoverSync() {
+  if (!monacoEditor) return;
+
+  if (window._editorHoverDisposer) window._editorHoverDisposer.dispose();
+
+  window._editorHoverDisposer = monacoEditor.onMouseMove(e => {
+    const pos = e.target.position;
+    if (!pos) return;
+
+    const offset = monacoEditor.getModel().getOffsetAt(pos);
+    let highlighted = false;
+
+    document.querySelectorAll('g.node').forEach(node => {
+      const s = parseInt(node.dataset.start, 10);
+      const e = parseInt(node.dataset.end, 10);
+      if (!isNaN(s) && !isNaN(e) && offset >= s && offset <= e) {
+        node.classList.add('highlight-node');
+        highlighted = true;
+      } else {
+        node.classList.remove('highlight-node');
+      }
+    });
+
+    if (!highlighted) clearMonacoHighlight();
+  });
+}
+
+function centerGraphInView() {
+  const wrap = graphWrap;
+  const content = graphContainer;
+  const contentRect = content.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const contentWidth = contentRect.width;
+  const contentHeight = contentRect.height;
+  const left = Math.max(0, (contentWidth - wrap.clientWidth) / 2);
+  const top = Math.max(0, (contentHeight - wrap.clientHeight) / 2);
+  wrap.scrollLeft = left;
+  wrap.scrollTop = top;
+}
+
+function setScale(newScale) {
+  if (!graphWrap || !graphContainer) return;
+  const wrap = graphWrap;
+  const content = graphContainer;
+  const wrapCenterX = wrap.scrollLeft + wrap.clientWidth / 2;
+  const wrapCenterY = wrap.scrollTop + wrap.clientHeight / 2;
+
+  const beforeBBox = content.getBoundingClientRect();
+  const beforeWidth = beforeBBox.width || (content.offsetWidth * scale);
+  const beforeHeight = beforeBBox.height || (content.offsetHeight * scale);
+
+  const ratioX = wrapCenterX / Math.max(1, beforeWidth);
+  const ratioY = wrapCenterY / Math.max(1, beforeHeight);
+
+  scale = newScale;
+  content.style.transform = `scale(${scale})`;
+
+
+  const afterWidth = beforeWidth * (scale / (scale / (scale || 1))); 
+
+  requestAnimationFrame(() => {
+    const afterBBox = content.getBoundingClientRect();
+    const afterWidthReal = afterBBox.width || content.offsetWidth * scale;
+    const afterHeightReal = afterBBox.height || content.offsetHeight * scale;
+    const newCenterX = Math.max(0, Math.round(afterWidthReal * ratioX - wrap.clientWidth / 2));
+    const newCenterY = Math.max(0, Math.round(afterHeightReal * ratioY - wrap.clientHeight / 2));
+    wrap.scrollLeft = newCenterX;
+    wrap.scrollTop = newCenterY;
+  });
+}
+
+
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let startScrollLeft = 0;
+let startScrollTop = 0;
+
+graphWrap.addEventListener('mousedown', (e) => {
+  const svg = graphWrap.querySelector('svg');
+  if (svg && svg.contains(e.target)) {
+    const nodeAncestor = e.target.closest('g.node');
+    if (nodeAncestor) return; 
+  }
+  isDragging = true;
+  graphWrap.classList.add('dragging');
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  startScrollLeft = graphWrap.scrollLeft;
+  startScrollTop = graphWrap.scrollTop;
+  document.body.style.userSelect = 'none';
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+  graphWrap.scrollLeft = startScrollLeft - dx;
+  graphWrap.scrollTop = startScrollTop - dy;
+});
+
+window.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  graphWrap.classList.remove('dragging');
+  document.body.style.userSelect = '';
+});
+
+graphWrap.addEventListener('pointerdown', (e) => {
+  const svg = graphWrap.querySelector('svg');
+  if (svg && svg.contains(e.target)) {
+    const nodeAncestor = e.target.closest('g.node');
+    if (nodeAncestor) return;
+  }
+  graphWrap.setPointerCapture(e.pointerId);
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  startScrollLeft = graphWrap.scrollLeft;
+  startScrollTop = graphWrap.scrollTop;
+  document.body.style.userSelect = 'none';
+});
+graphWrap.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+  graphWrap.scrollLeft = startScrollLeft - dx;
+  graphWrap.scrollTop = startScrollTop - dy;
+});
+graphWrap.addEventListener('pointerup', (e) => {
+  try { graphWrap.releasePointerCapture(e.pointerId); } catch(_) {}
+  isDragging = false;
+  document.body.style.userSelect = '';
+});
+
+document.getElementById('parseBtn').addEventListener('click', async () => {
+  const expr = (monacoEditor ? monacoEditor.getValue() : document.getElementById('editor').value);
+  if(!expr || expr.trim() === "") { alert("Please enter a formula"); return; }
+
+  try {
+    const res = await fetch('/parse', { method:'POST', headers:{ 'Content-Type':'text/plain' }, body: expr });
+    if(!res.ok){ const txt = await res.text(); alert("Server error: " + txt); return; }
+    const data = await res.json();
+    nodeRanges = data.ranges || [];
+    document.getElementById('cnf-text').textContent = (data.cnf || "").replace(/\\n/g,"\n");
+    graphContainer.style.transform = `scale(${scale})`;
+    await renderMermaid(data.mermaid || "");
+  } catch(e){
+    console.error("Error /parse:", e);
+    alert("Failed to contact server: " + (e.message || e));
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if(monacoEditor) monacoEditor.setValue('');
+  else document.getElementById('editor').value = '';
+  graphContainer.innerHTML = '';
+  document.getElementById('cnf-text').textContent = '(waiting for formula...)';
+  nodeRanges = [];
+  clearMonacoHighlight();
+});
+
+document.getElementById('refreshGraph').onclick = () => document.getElementById('parseBtn').click();
+
+document.getElementById("downloadAST").onclick = async () => {
+    const svg = document.querySelector("#graph-container svg");
+    if (!svg) {
+        alert("No AST to download");
+        return;
+    }
+
+    const clone = svg.cloneNode(true);
+    clone.removeAttribute("style");
+    clone.style.transform = "none";
+
+    const bbox = svg.getBBox();
+    clone.setAttribute("width", bbox.width + 40);
+    clone.setAttribute("height", bbox.height + 40);
+
+    const svgText = new XMLSerializer().serializeToString(clone);
+    const encoded = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgText)));
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-9999px";
+    iframe.style.top = "-9999px";
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+        const img = new iframe.contentWindow.Image();
+
+        img.onload = () => {
+            const canvas = iframe.contentWindow.document.createElement("canvas");
+            const scale = 16; // High-resolution PNG
+
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+
+            const ctx = canvas.getContext("2d");
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0);
+
+            canvas.toBlob((blob) => {
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "ast_tree.png";
+                a.click();
+                document.body.removeChild(iframe);
+            }, "image/png");
+        };
+        img.src = encoded;
+    };
+
+    iframe.src = "about:blank";
+};
+
+document.getElementById('copyCNF').onclick = () => navigator.clipboard.writeText(document.getElementById('cnf-text').textContent || '');
+
+document.getElementById('downloadCNF').onclick = () => {
+   const txt = document.getElementById('cnf-text').textContent || '';
+   const blob = new Blob([txt], { type:'text/plain' }); 
+   const a = document.createElement('a'); 
+   a.href = URL.createObjectURL(blob); 
+   a.download = 'tseitin_cnf.txt'; 
+   a.click();
+};
+
+window.addEventListener('load', () => { setTimeout(()=>document.getElementById('parseBtn').click(), 300); });
+</script>
+</body>
+</html>
+
+
+
