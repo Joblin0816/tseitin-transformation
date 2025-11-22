@@ -106,12 +106,36 @@
     .controls { display:flex; gap:10px; align-items:center; margin-top:12px; margin-bottom:12px; }
     .controls .flex-spacer { flex:1; }
 
-    #output-row { display:flex; gap:20px; flex-wrap:wrap; margin-top:18px; }
-    #graph-box, #cnf-box {
-      background:var(--panel); border-radius:8px; border:1px solid var(--border);
-      padding:16px; min-width:400px; min-height:420px; flex:1 1 48%;
-      display:flex; flex-direction:column; resize:both; overflow:auto;
-    }
+   
+#output-row {
+  display: flex;
+  flex-wrap: wrap;     
+  align-items: flex-start;
+  gap: 20px;
+  width: 100%;
+}
+
+
+#graph-box, #cnf-box {
+  background: var(--panel);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 16px;
+  min-width: 400px;
+  min-height: 420px;
+
+  flex: 1 1 48%;       
+  display: flex;
+  flex-direction: column;
+
+  resize: both;        
+  overflow: auto;      
+}
+
+#graph-box {
+  flex-basis: 100%;    
+}
+
     #graph-toolbar, #cnf-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
     #graph-title, #cnf-title { font-weight:700; color:var(--muted); font-size:16px; margin-bottom:6px; }
 
@@ -796,6 +820,3 @@ window.addEventListener('load', () => { setTimeout(()=>document.getElementById('
 </script>
 </body>
 </html>
-
-
-
