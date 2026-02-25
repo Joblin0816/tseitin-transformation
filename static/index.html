@@ -346,7 +346,9 @@ const langTexts = {
     downloadAST:"💾 Download AST",
     fullscreen:"⛶ Full Screen",
     latex:"📄 LaTeX Code",
-    latexTitle:"Generated LaTeX"
+    latexTitle:"Generated LaTeX",
+    copyLatex:"📋 Copy",
+    closeLatex:"Close"
   },
   SK:{
     parse:"Spracovať a zobraziť",
@@ -362,7 +364,9 @@ const langTexts = {
     downloadAST:"💾 Stiahnuť AST",
     fullscreen:"⛶ Celá obrazovka",
     latex:"📄 LaTeX Kód",
-    latexTitle:"Vygenerovaný LaTeX"
+    latexTitle:"Vygenerovaný LaTeX",
+    copyLatex:"📋 Kopírovať",
+    closeLatex:"Zavrieť"
   },
   UA:{
     parse:"Розібрати та візуалізувати",
@@ -378,7 +382,10 @@ const langTexts = {
     downloadAST:"💾 Завантажити AST",
     fullscreen:"⛶ Повний екран",
     latex:"📄 LaTeX Код",
-    latexTitle:"Згенерований LaTeX"
+    latexTitle:"Згенерований LaTeX",
+    copyLatex:"📋 Копіювати",
+    closeLatex:"Закрити"
+
   }
 };
 
@@ -473,6 +480,9 @@ function applyLanguage(lang){
   document.getElementById('fullscreenToggle').textContent = t.fullscreen;
   document.getElementById('latexBtn').textContent = t.latex;
   document.getElementById('latexTitle').textContent = t.latexTitle;
+  document.getElementById('copyLatex').textContent = t.copyLatex;
+  const closeBtn = document.getElementById('closeLatex');
+  closeBtn.title = t.closeLatex;
   langBtns.forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
   localStorage.setItem('lang', lang);
 }
