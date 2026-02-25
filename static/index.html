@@ -488,8 +488,24 @@ function applyLanguage(lang){
 }
 
 const savedTheme = localStorage.getItem('theme') || 'dark';
-const savedLang  = localStorage.getItem('lang') || 'EN';
 setTheme(savedTheme);
+
+let savedLang = localStorage.getItem('lang');
+
+if (!savedLang) {
+  const browserLang = navigator.language || navigator.userLanguage;
+
+  if (browserLang.startsWith("sk")) {
+    savedLang = "SK";
+  } else if (browserLang.startsWith("uk")) {
+    savedLang = "UA";
+  } else {
+    savedLang = "EN";
+  }
+
+  localStorage.setItem("lang", savedLang);
+}
+
 applyLanguage(savedLang);
 
 
