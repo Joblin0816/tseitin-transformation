@@ -9,6 +9,14 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.min.js"></script>
+  <!-- MathJax for LaTeX rendering -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
 
   <style>
@@ -250,6 +258,7 @@
           <button id="zoomOut" class="btn btn-sm btn-outline-light">🔍 Zoom Out (−)</button>
           <button id="refreshGraph" class="btn btn-sm btn-outline-light">🔄 Refresh</button>
           <button id="downloadAST" class="btn btn-sm btn-outline-light">💾 Download AST</button>
+          <button id="latexBtn" class="btn btn-sm btn-outline-light">📄 LaTeX Code</button>
           <button id="fullscreenToggle" class="btn btn-sm btn-outline-light">⛶ Full Screen</button>
         </div>
         <div id="graph-wrap"><div id="graph-container"></div></div>
@@ -267,15 +276,110 @@
         <pre id="cnf-text">(waiting for formula...)</pre>
       </div>
     </div>
+    <!-- ================= LaTeX PANEL ================= -->
+<div id="latex-panel" style="
+  position:fixed;
+  top:0;
+  right:-500px;
+  width:500px;
+  height:100%;
+  background:var(--panel);
+  border-left:1px solid var(--border);
+  padding:18px;
+  transition:right 0.3s ease;
+  z-index:2000;
+  display:flex;
+  flex-direction:column;
+">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <strong id="latexTitle">Generated LaTeX</strong>
+    <div style="display:flex; gap:8px;">
+      <button id="copyLatex" class="btn btn-sm btn-primary">📋 Copy</button>
+      <button id="closeLatex" class="btn btn-sm btn-outline-light">✖</button>
+    </div>
+  </div>
+
+  <hr>
+
+  <pre id="latex-code" 
+  style="
+    flex:1;
+    overflow:auto;
+    font-family:Consolas, monospace;
+    font-size:14px;
+    background:transparent;
+    border:none;
+    white-space:pre-wrap;
+  ">
+</pre>
+
+<hr>
+
+<div id="latex-formula"
+  style="
+    font-size:20px;
+    font-weight:600;
+    text-align:center;
+    padding:12px 0;
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+  ">
+</div>
+</div>
   </div>
 
 
 <script>
-  
+  let currentLatex = "";
+  let lastMermaidSource = "";
 const langTexts = {
-  EN:{ parse:"Parse & Visualize", clear:"Clear", examples:"Examples ▾", ast:"AST Tree", cnf:"Tseitin CNF Output", copy:"📋 Copy CNF", download:"⬇ Download CNF" },
-  SK:{ parse:"Spracovať a zobraziť", clear:"Vymazať", examples:"Príklady ▾", ast:"Strom AST", cnf:"Výstup Tseitin CNF", copy:"📋 Kopírovať CNF", download:"⬇ Stiahnuť CNF" },
-  UA:{ parse:"Розібрати та візуалізувати", clear:"Очистити", examples:"Приклади ▾", ast:"Дерево AST", cnf:"Вивід Tseitin CNF", copy:"📋 Копіювати CNF", download:"⬇ Завантажити CNF" }
+  EN:{
+    parse:"Parse & Visualize",
+    clear:"Clear",
+    examples:"Examples ▾",
+    ast:"AST Tree",
+    cnf:"Tseitin CNF Output",
+    copy:"📋 Copy CNF",
+    download:"⬇ Download CNF",
+    zoomIn:"🔍 Zoom In (+)",
+    zoomOut:"🔍 Zoom Out (−)",
+    refresh:"🔄 Refresh",
+    downloadAST:"💾 Download AST",
+    fullscreen:"⛶ Full Screen",
+    latex:"📄 LaTeX Code",
+    latexTitle:"Generated LaTeX"
+  },
+  SK:{
+    parse:"Spracovať a zobraziť",
+    clear:"Vymazať",
+    examples:"Príklady ▾",
+    ast:"Strom AST",
+    cnf:"Výstup Tseitin CNF",
+    copy:"📋 Kopírovať CNF",
+    download:"⬇ Stiahnuť CNF",
+    zoomIn:"🔍 Priblížiť (+)",
+    zoomOut:"🔍 Oddialiť (−)",
+    refresh:"🔄 Obnoviť",
+    downloadAST:"💾 Stiahnuť AST",
+    fullscreen:"⛶ Celá obrazovka",
+    latex:"📄 LaTeX Kód",
+    latexTitle:"Vygenerovaný LaTeX"
+  },
+  UA:{
+    parse:"Розібрати та візуалізувати",
+    clear:"Очистити",
+    examples:"Приклади ▾",
+    ast:"Дерево AST",
+    cnf:"Вивід Tseitin CNF",
+    copy:"📋 Копіювати CNF",
+    download:"⬇ Завантажити CNF",
+    zoomIn:"🔍 Збільшити (+)",
+    zoomOut:"🔍 Зменшити (−)",
+    refresh:"🔄 Оновити",
+    downloadAST:"💾 Завантажити AST",
+    fullscreen:"⛶ Повний екран",
+    latex:"📄 LaTeX Код",
+    latexTitle:"Згенерований LaTeX"
+  }
 };
 
 const themeToggle = document.getElementById('theme-toggle');
@@ -362,6 +466,13 @@ function applyLanguage(lang){
   document.getElementById('cnf-title').textContent = t.cnf;
   document.getElementById('copyCNF').textContent = t.copy;
   document.getElementById('downloadCNF').textContent = t.download;
+  document.getElementById('zoomIn').textContent = t.zoomIn;
+  document.getElementById('zoomOut').textContent = t.zoomOut;
+  document.getElementById('refreshGraph').textContent = t.refresh;
+  document.getElementById('downloadAST').textContent = t.downloadAST;
+  document.getElementById('fullscreenToggle').textContent = t.fullscreen;
+  document.getElementById('latexBtn').textContent = t.latex;
+  document.getElementById('latexTitle').textContent = t.latexTitle;
   langBtns.forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
   localStorage.setItem('lang', lang);
 }
@@ -570,6 +681,7 @@ async function renderMermaid(diagramText) {
     });
   });
 
+
 const graphWrap = document.getElementById('graph-wrap');
 const graphContainer = document.getElementById('graph-container');
 let zoomLevel = 1;
@@ -605,6 +717,127 @@ document.getElementById('zoomOut').onclick = () => {
 
   console.log(`Rendered ${nodes.length} nodes (${nodeRanges.length} ranges)`);
   attachEditorHoverSync();
+}
+
+function generateForestWithSymbols(mermaidText) {
+  if (!mermaidText) return "";
+
+  const lines = mermaidText.split("\n");
+
+  const childrenMap = {};
+  const parentSet = new Set();
+  const childSet = new Set();
+
+  // 1️⃣ Build structure from Mermaid source
+  lines.forEach(line => {
+    const edgeMatch = line.match(/(\w+)\s*-->\s*(\w+)/);
+    if (edgeMatch) {
+      const parent = edgeMatch[1];
+      const child = edgeMatch[2];
+
+      if (!childrenMap[parent]) childrenMap[parent] = [];
+      childrenMap[parent].push(child);
+
+      parentSet.add(parent);
+      childSet.add(child);
+    }
+  });
+
+  // 2️⃣ Extract real visible labels from SVG
+  const svgNodes = document.querySelectorAll("#graph-container g.node");
+
+  const labelMap = {};
+
+  svgNodes.forEach(node => {
+    const nodeId = node.id; // e.g. flowchart-n0-0
+
+    const idMatch = nodeId.match(/n\d+/);
+    if (!idMatch) return;
+
+    const cleanId = idMatch[0]; // n0
+
+    let label = "";
+
+    const foreign = node.querySelector("foreignObject span");
+    if (foreign) {
+      label = foreign.textContent.trim();
+    } else {
+      const textEl = node.querySelector("text");
+      if (textEl) label = textEl.textContent.trim();
+    }
+
+    labelMap[cleanId] = label;
+  });
+
+  // 3️⃣ Find root
+  let root = null;
+  parentSet.forEach(p => {
+    if (!childSet.has(p)) root = p;
+  });
+
+  if (!root) root = Object.keys(childrenMap)[0];
+
+function convertLabel(label) {
+  if (!label) return "";
+
+  // Remove surrounding $
+  label = label.replace(/^\$+|\$+$/g, "").trim();
+
+  // Convert LaTeX commands back to symbols if they exist
+  if (label === "\\land") return "∧";
+  if (label === "\\lor") return "∨";
+  if (label === "\\lnot") return "¬";
+  if (label === "\\rightarrow") return "→";
+  if (label === "\\leftrightarrow") return "↔";
+
+  return label;
+}
+
+ function build(id, depth = 0) {
+  const label = convertLabel(labelMap[id] || id);
+  const indent = "  ".repeat(depth);
+
+  let result = indent + "[" + label;
+
+  if (childrenMap[id]) {
+    childrenMap[id].forEach(child => {
+      result += "\n" + build(child, depth + 1);
+    });
+  }
+
+  result += "]";
+  return result;
+}
+
+  return "\\begin{forest}\n" +
+       build(root, 0).trim() +
+       "\n\\end{forest}";
+}
+
+function astToLatexFromRanges() {
+  // Use original expression directly from editor
+  const expr = monacoEditor ? monacoEditor.getValue() : "";
+  if (!expr) return "";
+
+  return expr
+    .replace(/∧/g, "\\land ")
+    .replace(/∨/g, "\\lor ")
+    .replace(/¬/g, "\\lnot ")
+    .replace(/→/g, "\\rightarrow ")
+    .replace(/↔/g, "\\leftrightarrow ");
+}
+
+function updateLatexPanel() {
+  const forestCode = generateForestWithSymbols(lastMermaidSource);
+  const expr = monacoEditor ? monacoEditor.getValue() : "";
+
+  // Top LaTeX block
+  document.getElementById("latex-code").textContent = forestCode;
+
+  // Bottom styled formula
+  document.getElementById("latex-formula").textContent = expr;
+
+  currentLatex = forestCode;
 }
 
 function attachEditorHoverSync() {
@@ -751,9 +984,11 @@ document.getElementById('parseBtn').addEventListener('click', async () => {
     if(!res.ok){ const txt = await res.text(); alert("Server error: " + txt); return; }
     const data = await res.json();
     nodeRanges = data.ranges || [];
+    lastMermaidSource = data.mermaid || "";
     document.getElementById('cnf-text').textContent = (data.cnf || "").replace(/\\n/g,"\n");
     graphContainer.style.transform = `scale(${scale})`;
     await renderMermaid(data.mermaid || "");
+    updateLatexPanel();
   } catch(e){
     console.error("Error /parse:", e);
     alert("Failed to contact server: " + (e.message || e));
@@ -832,6 +1067,20 @@ document.getElementById('downloadCNF').onclick = () => {
    a.href = URL.createObjectURL(blob); 
    a.download = 'tseitin_cnf.txt'; 
    a.click();
+};
+
+const latexPanel = document.getElementById("latex-panel");
+
+document.getElementById("latexBtn").onclick = () => {
+  latexPanel.style.right = "0px";
+};
+
+document.getElementById("closeLatex").onclick = () => {
+  latexPanel.style.right = "-500px";
+};
+
+document.getElementById("copyLatex").onclick = () => {
+  navigator.clipboard.writeText(currentLatex || "");
 };
 
 window.addEventListener('load', () => { setTimeout(()=>document.getElementById('parseBtn').click(), 300); });
