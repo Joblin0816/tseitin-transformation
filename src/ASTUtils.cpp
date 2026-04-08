@@ -167,7 +167,7 @@ std::string astToTseitin(const ASTNode* root) {
     std::set<std::string> seen;
     for (auto &p : mapping) {
         if (seen.insert(p.first + ":" + p.second).second)
-            out << p.first << " => " << p.second << "\\n";
+            out << p.first << " ↦ " << p.second << "\\n";
     }
 
     out << "\\nCNF clauses:\\n";
