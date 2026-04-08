@@ -1,4 +1,6 @@
 #define NOMINMAX
+#include <winsock2.h>
+#include <windows.h>
 #undef ERROR
 
 #include <crow_all.h>
@@ -15,7 +17,8 @@
 #include <fstream>
 #include <functional>
 #include <locale>
-#include <codecvt>
+
+/* ---------- Label Simplification ---------- */
 
 std::string simplifyLabel(const std::string& type, const std::string& value) {
     if (type == "And") return "∧";
@@ -26,6 +29,8 @@ std::string simplifyLabel(const std::string& type, const std::string& value) {
     if (type == "Variable") return value;
     return value.empty() ? type : value;
 }
+
+/* ---------- Mermaid Helpers ---------- */
 
 int& nodeIdCounter() {
     static int counter = 0;
@@ -39,6 +44,7 @@ void resetNodeId() {
 void buildMermaid(const std::shared_ptr<ASTNode>& node,
                   std::ostringstream& oss,
                   const std::string& parent = "") {
+
     if (!node) return;
 
     if (node->type == "Group" ||
@@ -67,6 +73,8 @@ void buildMermaid(const std::shared_ptr<ASTNode>& node,
         buildMermaid(child, oss, nodeId);
 }
 
+/* ---------- Parser ---------- */
+
 std::shared_ptr<ASTNode> parseExpression(const std::string& exprStr) {
     antlr4::ANTLRInputStream input(exprStr);
     LogicLexer lexer(&input);
@@ -79,22 +87,27 @@ std::shared_ptr<ASTNode> parseExpression(const std::string& exprStr) {
     return std::any_cast<std::shared_ptr<ASTNode>>(astAny);
 }
 
+/* ---------- MAIN ---------- */
+
 int main() {
+
+    // UTF-8 support
     try {
-    std::locale::global(std::locale("en_US.UTF-8"));
-} catch (...) {
-    try {
-        std::locale::global(std::locale(".UTF-8"));
+        std::locale::global(std::locale("en_US.UTF-8"));
     } catch (...) {
-        std::cerr << "⚠️ Warning: Unable to set UTF-8 locale. Continuing with default locale.\n";
+        try {
+            std::locale::global(std::locale(".UTF-8"));
+        } catch (...) {
+            std::cerr << "⚠️ Warning: Unable to set UTF-8 locale.\n";
+        }
     }
-}
 
     std::wcout.imbue(std::locale());
     std::cout.imbue(std::locale());
 
     crow::SimpleApp app;
 
+    /* ---------- Serve UI ---------- */
     CROW_ROUTE(app, "/")([]() {
         std::ifstream file("static/index.html", std::ios::binary);
         if (!file.is_open())
@@ -102,55 +115,108 @@ int main() {
 
         std::ostringstream buffer;
         buffer << file.rdbuf();
+
         crow::response res(buffer.str());
         res.set_header("Content-Type", "text/html; charset=UTF-8");
         return res;
     });
 
-    CROW_ROUTE(app, "/parse").methods("POST"_method)([](const crow::request& req) {
+    /* ---------- Parse Endpoint ---------- */
+    CROW_ROUTE(app, "/parse").methods("POST"_method)
+    ([](const crow::request& req) {
+
         std::string expr = req.body;
         if (expr.empty())
             return crow::response(400, "Empty expression");
 
         try {
             resetNodeId();
+
             auto ast = parseExpression(expr);
 
+            /* ---------- AST → Mermaid ---------- */
             std::ostringstream oss;
             oss << "graph TD;\n";
             buildMermaid(ast, oss);
 
-            std::string tseitin = astToTseitin(ast.get());
+            /* ---------- Tseitin ---------- */
+            TseitinResult tseitin = astToTseitin(ast.get());
 
+            /* ---------- Node ranges ---------- */
             crow::json::wvalue::list nodeRanges;
+
             std::function<void(const std::shared_ptr<ASTNode>&)> collect =
                 [&](const std::shared_ptr<ASTNode>& n) {
                     if (!n) return;
+
                     crow::json::wvalue item;
                     item["label"] = simplifyLabel(n->type, n->value);
                     item["start"] = n->start;
                     item["end"] = n->end;
                     nodeRanges.push_back(std::move(item));
-                    for (auto& c : n->children) collect(c);
+
+                    for (auto& c : n->children)
+                        collect(c);
                 };
+
             collect(ast);
 
+            /* ---------- JSON RESPONSE ---------- */
             crow::json::wvalue data;
+
             data["mermaid"] = oss.str();
-            data["cnf"] = tseitin;
             data["ranges"] = std::move(nodeRanges);
+            data["top"] = tseitin.topVar;
+
+            /* ---------- CNF ---------- */
+            crow::json::wvalue::list cnfList;
+            for (auto &c : tseitin.cnf)
+                cnfList.push_back(c);
+            data["cnf"] = std::move(cnfList);
+
+            /* ---------- Steps ---------- */
+            crow::json::wvalue::list stepList;
+
+            for (auto &s : tseitin.steps) {
+                crow::json::wvalue step;
+                step["var"] = s.var;
+                step["formula"] = s.formula;
+
+                crow::json::wvalue::list cls;
+                for (auto &c : s.clauses)
+                    cls.push_back(c);
+
+                step["clauses"] = std::move(cls);
+                stepList.push_back(std::move(step));
+            }
+
+            data["steps"] = std::move(stepList);
+
+// ---------- Variable Mapping ----------
+crow::json::wvalue::list mappingList;
+
+for (auto &m : tseitin.mapping) {
+    crow::json::wvalue item;
+    item["var"] = m.first;
+    item["expr"] = m.second;
+    mappingList.push_back(std::move(item));
+}
+
+data["mapping"] = std::move(mappingList);
 
             crow::response res{data};
             res.set_header("Content-Type", "application/json; charset=UTF-8");
             return res;
 
         } catch (const std::exception& e) {
+
             crow::response err(500, std::string("Parse error: ") + e.what());
             err.set_header("Content-Type", "text/plain; charset=UTF-8");
             return err;
         }
     });
 
-    std::cout << "✅ NEW CPP VERSION RUNNING — Auto deploy works! \n";
+    std::cout << "✅ FULL VERSION (Steps + Mapping + CNF) RUNNING 🚀\n";
+
     app.port(18080).multithreaded().run();
 }

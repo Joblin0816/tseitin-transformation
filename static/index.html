@@ -274,6 +274,20 @@ window.MathJax = {
           </div>
         </div>
         <pre id="cnf-text">(waiting for formula...)</pre>
+        <div id="metaInfo" style="margin-bottom:10px;"></div>
+        <button id="toggleStepsBtn" class="btn btn-sm btn-outline-light" style="margin-top:10px;">
+  🔍 Show Transformation Steps
+</button>
+
+<div id="stepsPanel" style="
+  display:none;
+  margin-top:10px;
+  padding:10px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  max-height:300px;
+  overflow:auto;
+"></div>
       </div>
     </div>
     <!-- ================= LaTeX PANEL ================= -->
@@ -490,6 +504,7 @@ function applyLanguage(lang){
 const savedTheme = localStorage.getItem('theme') || 'dark';
 setTheme(savedTheme);
 
+// 🔥 Auto-detect language only on first visit
 let savedLang = localStorage.getItem('lang');
 
 if (!savedLang) {
@@ -769,7 +784,7 @@ function generateForestWithSymbols(mermaidText) {
     }
   });
 
-  // 2️⃣ Extract real visible labels from SVG
+  
   const svgNodes = document.querySelectorAll("#graph-container g.node");
 
   const labelMap = {};
@@ -795,7 +810,7 @@ function generateForestWithSymbols(mermaidText) {
     labelMap[cleanId] = label;
   });
 
-  // 3️⃣ Find root
+
   let root = null;
   parentSet.forEach(p => {
     if (!childSet.has(p)) root = p;
@@ -1009,9 +1024,23 @@ document.getElementById('parseBtn').addEventListener('click', async () => {
     const res = await fetch('/parse', { method:'POST', headers:{ 'Content-Type':'text/plain' }, body: expr });
     if(!res.ok){ const txt = await res.text(); alert("Server error: " + txt); return; }
     const data = await res.json();
+    // 🔥 ADD THIS BLOCK
+let mappingHtml = "";
+
+if (data.mapping && data.mapping.length > 0) {
+  mappingHtml += "<br><b>Top variable:</b> " + data.top + "<br><br>";
+  mappingHtml += "<b>Variable mapping:</b><br>";
+
+  data.mapping.forEach(m => {
+    mappingHtml += `${m[0]} ↦ ${m[1]}<br>`;
+  });
+}
+
+
+    renderMeta(data);
     nodeRanges = data.ranges || [];
     lastMermaidSource = data.mermaid || "";
-    document.getElementById('cnf-text').textContent = (data.cnf || "").replace(/\\n/g,"\n");
+    renderSteps(data.steps || []);
     graphContainer.style.transform = `scale(${scale})`;
     await renderMermaid(data.mermaid || "");
     updateLatexPanel();
@@ -1108,6 +1137,66 @@ document.getElementById("closeLatex").onclick = () => {
 document.getElementById("copyLatex").onclick = () => {
   navigator.clipboard.writeText(currentLatex || "");
 };
+
+function toggleSteps() {
+  const panel = document.getElementById("stepsPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+
+document.getElementById("toggleStepsBtn").onclick = () => {
+  const panel = document.getElementById("stepsPanel");
+  const btn = document.getElementById("toggleStepsBtn");
+
+  const isHidden = panel.style.display === "none";
+  panel.style.display = isHidden ? "block" : "none";
+  btn.textContent = isHidden ? "❌ Hide Steps" : "🔍 Show Transformation Steps";
+};
+
+function renderSteps(steps) {
+  if (!steps || steps.length === 0) return;
+
+  let html = "<h5>Transformation Steps</h5>";
+
+  steps.forEach((s, i) => {
+    html += `
+      <div style="margin-bottom:10px; padding:8px; border:1px solid var(--border); border-radius:6px;">
+        <div><b>Step ${i+1}: ${s.var} ↦ ${s.formula}</b></div>
+    `;
+
+    s.clauses.forEach(c => {
+      html += `<div style="margin-left:10px;">${c}</div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  document.getElementById("stepsPanel").innerHTML = html;
+}
+
+function renderMeta(data) {
+  let html = "";
+
+  // ---------- CNF ----------
+  if (Array.isArray(data.cnf)) {
+    html += data.cnf.join("<br>");
+  }
+
+  // ---------- Top ----------
+  if (data.top) {
+    html += `<br><br><b>Top variable:</b> ${data.top}<br>`;
+  }
+
+  // ---------- Mapping ----------
+  if (data.mapping && data.mapping.length > 0) {
+    html += `<br><b>Variable mapping:</b><br>`;
+
+    data.mapping.forEach(m => {
+      html += `${m.var} ↦ ${m.expr}<br>`;
+    });
+  }
+
+  document.getElementById("cnf-text").innerHTML = html;
+}
 
 window.addEventListener('load', () => { setTimeout(()=>document.getElementById('parseBtn').click(), 300); });
 </script>
