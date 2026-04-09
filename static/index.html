@@ -36,8 +36,29 @@ window.MathJax = {
       --node-text: #e6edf3;
       --examples-bg: #0b1220;
       --examples-hover: #12202a;
-    }
+    /* }
+/* ✅ Make ALL nodes same size (clean way) */
+#graph-container svg .node circle {
+  stroke-width: 1.5px;
+}
 
+/* 🔥 Force equal node size */
+#graph-container svg .node {
+  width: 50px !important;
+  height: 50px !important;
+}
+
+/* Center text perfectly */
+#graph-container svg .node text {
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-size: 13px;
+}
+
+/* Prevent clipping */
+#graph-container svg {
+  overflow: visible;
+} 
     body:not(.light) ::-webkit-scrollbar {
         width: 10px;
         height: 10px;
@@ -51,6 +72,10 @@ window.MathJax = {
         background: #3a4450;
         border-radius: 6px;
     }
+    .node text {
+  font-weight: 500;
+}
+
 
     body:not(.light) ::-webkit-scrollbar-thumb:hover {
         background: #5b6b7a;
@@ -676,8 +701,8 @@ async function renderMermaid(diagramText) {
       },
       flowchart: {
           useMaxWidth: true,
-          nodeSpacing: 40,
-          rankSpacing: 45
+          nodeSpacing: 50,
+          rankSpacing: 60
       }
   });
 
@@ -703,10 +728,85 @@ async function renderMermaid(diagramText) {
   for (const arr of labelMap.values()) arr.sort((a, b) => a.start - b.start);
 
   const nodes = el.querySelectorAll('g.node');
+
+  
+// STEP 1: get max radius
+let maxR = 0;
+
+nodes.forEach(node => {
+  const circle = node.querySelector('circle');
+  if (!circle) return;
+
+  const r = circle.r.baseVal.value; // ✅ correct way (NOT getAttribute)
+  if (r > maxR) maxR = r;
+});
+
+// STEP 2: apply uniform size
+nodes.forEach(node => {
+  const circle = node.querySelector('circle');
+  if (!circle) return;
+
+  circle.r.baseVal.value = maxR;
+});
+  nodes.forEach(node => {
+  const textEl = node.querySelector('text');
+  if (!textEl) return;
+
+  let raw = textEl.textContent.trim();
+
+  // ✅ Extract (x1)
+  const match = raw.match(/\(x\d+\)/);
+  if (!match) return;
+
+  const varName = match[0]; // "(x1)"
+
+  // ✅ REMOVE from inside circle
+  const clean = raw.replace(/\s*\(x\d+\)/, "");
+  textEl.textContent = clean;
+
+  const circle = node.querySelector('circle');
+if (!circle) return;
+
+// ✅ Get circle box (correct position after transform)
+const bbox = circle.getBBox();
+
+// Center of circle
+const cx = bbox.x + bbox.width / 2;
+const cy = bbox.y + bbox.height / 2;
+
+// Radius
+const r = bbox.width / 2;
+
+// ✅ Create annotation
+const newText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+// 👉 PERFECT SIDE POSITION (tight to circle)
+newText.setAttribute("x", cx + r + 6);   // small gap (6px)
+newText.setAttribute("y", cy + 3);       // vertical center align
+
+newText.setAttribute("fill", "#00bfff");
+newText.setAttribute("font-size", "12px");
+newText.setAttribute("font-weight", "bold");
+newText.setAttribute("dominant-baseline", "middle"); // 🔥 KEY FIX
+newText.setAttribute("text-anchor", "start");
+
+newText.textContent = varName;
+
+node.appendChild(newText);
+});
+
+
+
   nodes.forEach(node => {
     const textEl = node.querySelector('text, tspan, foreignObject, div, span');
-    const label = (textEl?.textContent || '').trim().replace(/['"]/g, '');
-    const data = labelMap.has(label) && labelMap.get(label).length ? labelMap.get(label).shift() : null;
+    let rawLabel = (textEl?.textContent || '').trim().replace(/['"]/g, '');
+
+// 🔥 remove (x1), (x2) part
+let cleanLabel = rawLabel.replace(/\s*\(x\d+\)/, '');
+
+const data = labelMap.has(cleanLabel) && labelMap.get(cleanLabel).length
+  ? labelMap.get(cleanLabel).shift()
+  : null;
     if (data) {
       node.dataset.start = data.start;
       node.dataset.end = data.end;
@@ -1024,6 +1124,14 @@ document.getElementById('parseBtn').addEventListener('click', async () => {
     const res = await fetch('/parse', { method:'POST', headers:{ 'Content-Type':'text/plain' }, body: expr });
     if(!res.ok){ const txt = await res.text(); alert("Server error: " + txt); return; }
     const data = await res.json();
+    window.nodeVarMap = {};
+if (data.mapping) {
+  data.mapping.forEach(m => {
+    window.nodeVarMap[m.expr] = m.var;
+  });
+}
+
+
     // 🔥 ADD THIS BLOCK
 let mappingHtml = "";
 
@@ -1032,7 +1140,7 @@ if (data.mapping && data.mapping.length > 0) {
   mappingHtml += "<b>Variable mapping:</b><br>";
 
   data.mapping.forEach(m => {
-    mappingHtml += `${m[0]} ↦ ${m[1]}<br>`;
+   mappingHtml += `${m.var} ↦ ${m.expr}<br>`;
   });
 }
 
@@ -1073,8 +1181,17 @@ document.getElementById("downloadAST").onclick = async () => {
     clone.style.transform = "none";
 
     const bbox = svg.getBBox();
-    clone.setAttribute("width", bbox.width + 40);
-    clone.setAttribute("height", bbox.height + 40);
+
+// Add padding to include overflow (annotations, bigger circles, etc.)
+const padding = 50;
+
+clone.setAttribute(
+  "viewBox",
+  `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`
+);
+
+clone.setAttribute("width", bbox.width + padding * 2);
+clone.setAttribute("height", bbox.height + padding * 2);
 
     const svgText = new XMLSerializer().serializeToString(clone);
     const encoded = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgText)));

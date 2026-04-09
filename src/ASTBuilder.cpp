@@ -1,92 +1,156 @@
 #include "ASTBuilder.h"
 
+/* ---------- ROOT ---------- */
+
 std::any ASTBuilder::visitExpr(LogicParser::ExprContext *ctx) {
-    auto node = std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->iffExpr()));
-    node->start = ctx->getStart()->getStartIndex();
-    node->end = ctx->getStop()->getStopIndex();
-    return node;
+auto node = std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->iffExpr()));
+node->start = ctx->getStart()->getStartIndex();
+node->end   = ctx->getStop()->getStopIndex();
+return node;
 }
+
+/* ---------- IFF ---------- */
 
 std::any ASTBuilder::visitIffExpr(LogicParser::IffExprContext *ctx) {
-    auto node = std::make_shared<ASTNode>();
-    node->start = ctx->getStart()->getStartIndex();
-    node->end = ctx->getStop()->getStopIndex();
+if (ctx->impliesExpr().size() == 1)
+return visit(ctx->impliesExpr(0));
 
-    if (ctx->impliesExpr().size() == 2) {
-        node->type = "Iff";
-        node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->impliesExpr(0))));
-        node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->impliesExpr(1))));
-    } else {
-        return visit(ctx->impliesExpr(0));
-    }
-    return node;
+
+auto node = std::make_shared<ASTNode>();
+node->type = "Iff";
+
+node->start = ctx->getStart()->getStartIndex();
+node->end   = ctx->getStop()->getStopIndex();
+
+node->children.push_back(
+    std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->impliesExpr(0)))
+);
+node->children.push_back(
+    std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->impliesExpr(1)))
+);
+
+return node;
+
+
 }
+
+/* ---------- IMPLIES ---------- */
 
 std::any ASTBuilder::visitImpliesExpr(LogicParser::ImpliesExprContext *ctx) {
-    auto node = std::make_shared<ASTNode>();
-    node->start = ctx->getStart()->getStartIndex();
-    node->end = ctx->getStop()->getStopIndex();
+if (ctx->orExpr().size() == 1)
+return visit(ctx->orExpr(0));
 
-    if (ctx->orExpr().size() == 2) {
-        node->type = "Implies";
-        node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(0))));
-        node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(1))));
-    } else {
-        return visit(ctx->orExpr(0));
-    }
-    return node;
+
+auto node = std::make_shared<ASTNode>();
+node->type = "Implies";
+
+node->start = ctx->getStart()->getStartIndex();
+node->end   = ctx->getStop()->getStopIndex();
+
+node->children.push_back(
+    std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(0)))
+);
+node->children.push_back(
+    std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(1)))
+);
+
+return node;
+
+
 }
+
+/* ---------- OR (BINARY TREE) ---------- */
 
 std::any ASTBuilder::visitOrExpr(LogicParser::OrExprContext *ctx) {
-    auto node = std::make_shared<ASTNode>();
-    node->start = ctx->getStart()->getStartIndex();
-    node->end = ctx->getStop()->getStopIndex();
+if (ctx->andExpr().size() == 1)
+return visit(ctx->andExpr(0));
 
-    if (ctx->andExpr().size() >= 2) {
-        node->type = "Or";
-        for (auto expr : ctx->andExpr())
-            node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(expr)));
-    } else {
-        return visit(ctx->andExpr(0));
-    }
-    return node;
+
+auto left = std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->andExpr(0)));
+
+for (size_t i = 1; i < ctx->andExpr().size(); ++i) {
+    auto parent = std::make_shared<ASTNode>();
+    parent->type = "Or";
+
+    parent->children.push_back(left);
+    parent->children.push_back(
+        std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->andExpr(i)))
+    );
+
+    left = parent;
 }
+
+return left;
+
+
+}
+
+/* ---------- AND (BINARY TREE) ---------- */
 
 std::any ASTBuilder::visitAndExpr(LogicParser::AndExprContext *ctx) {
-    auto node = std::make_shared<ASTNode>();
-    node->start = ctx->getStart()->getStartIndex();
-    node->end = ctx->getStop()->getStopIndex();
+if (ctx->atom().size() == 1)
+return visit(ctx->atom(0));
 
-    if (ctx->atom().size() >= 2) {
-        node->type = "And";
-        for (auto a : ctx->atom())
-            node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(a)));
-    } else {
-        return visit(ctx->atom(0));
+
+auto left = std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->atom(0)));
+
+for (size_t i = 1; i < ctx->atom().size(); ++i) {
+    auto parent = std::make_shared<ASTNode>();
+    parent->type = "And";
+
+    parent->children.push_back(left);
+    parent->children.push_back(
+        std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->atom(i)))
+    );
+
+    left = parent;
+}
+
+return left;
+
+
+}
+
+/* ---------- ATOM ---------- */
+
+std::any ASTBuilder::visitAtom(LogicParser::AtomContext *ctx) {
+
+
+if (!ctx->children.empty()) {
+    std::string first = ctx->children[0]->getText();
+
+    /* ---------- NOT ---------- */
+    if (first == "NOT" || first == "¬") {
+        auto node = std::make_shared<ASTNode>();
+        node->type = "Not";
+
+        node->children.push_back(
+            std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->children[1]))
+        );
+
+        node->start = ctx->getStart()->getStartIndex();
+        node->end   = ctx->getStop()->getStopIndex();
+
+        return node;
     }
+
+    /* ---------- (expr) → FLATTEN ---------- */
+    if (first == "(") {
+        return visit(ctx->expr()); 
+    }
+
+    /* ---------- VARIABLE ---------- */
+    auto node = std::make_shared<ASTNode>();
+    node->type = "Variable";
+    node->value = first;
+
+    node->start = ctx->getStart()->getStartIndex();
+    node->end   = ctx->getStop()->getStopIndex();
+
     return node;
 }
 
-std::any ASTBuilder::visitAtom(LogicParser::AtomContext *ctx) {
-    auto node = std::make_shared<ASTNode>();
-    node->start = ctx->getStart()->getStartIndex();
-    node->end = ctx->getStop()->getStopIndex();
+return nullptr;
 
-    if (!ctx->children.empty()) {
-        std::string first = ctx->children[0]->getText();
 
-        if (first == "NOT" || first == "¬") {
-            node->type = "Not";
-            node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->children[1])));
-        } 
-        else if (first == "(") {
-            node->type = "Group";
-            node->children.push_back(std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->expr())));
-        } 
-        else {
-            node->type = "Variable";
-            node->value = first;
-        }
-    }
-    return node;
 }
