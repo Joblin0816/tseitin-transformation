@@ -372,6 +372,10 @@ window.MathJax = {
   let lastMermaidSource = "";
 const langTexts = {
   EN:{
+    title:"Tseitin transformation of propositional logic formulas",
+    instructions:"Type formulas. Use shortcuts like \\and, \\or, \\neg, \\to, \\iff.",
+    steps:"🔍 Show Transformation Steps",
+    shortcuts:"Shortcuts: \\and => ∧, \\or => ∨, \\neg => ¬, \\to => →, \\iff => ↔",
     parse:"Parse & Visualize",
     clear:"Clear",
     examples:"Examples ▾",
@@ -390,6 +394,12 @@ const langTexts = {
     closeLatex:"Close"
   },
   SK:{
+    title:"Tseitinova transformácia formúl výrokovej logiky",
+    instructions:"Zadajte formuly. Použite skratky: \\and, \\or, \\neg, \\to, \\iff.",
+    steps:"🔍 Zobraziť kroky transformácie",
+    shortcuts:"Skratky: \\and => ∧, \\or => ∨, \\neg => ¬, \\to => →, \\iff => ↔",
+    topVariable:"Hlavná premenná",
+    variableMapping:"Mapovanie premenných",
     parse:"Spracovať a zobraziť",
     clear:"Vymazať",
     examples:"Príklady ▾",
@@ -408,6 +418,12 @@ const langTexts = {
     closeLatex:"Zavrieť"
   },
   UA:{
+    title:"Перетворення Цейтіна для формул пропозиційної логіки",
+    instructions:"Введіть формули. Використовуйте скорочення: \\and, \\or, \\neg, \\to, \\iff.",
+    steps:"🔍 Показати кроки перетворення",
+    shortcuts:"Скорочення: \\and => ∧, \\or => ∨, \\neg => ¬, \\to => →, \\iff => ↔",
+    topVariable:"Головна змінна",
+    variableMapping:"Відображення змінних",
     parse:"Розібрати та візуалізувати",
     clear:"Очистити",
     examples:"Приклади ▾",
@@ -505,6 +521,10 @@ fullscreenBtn.onclick = toggleFullScreen;
 
 function applyLanguage(lang){
   const t = langTexts[lang] || langTexts.EN;
+  document.getElementById('title').textContent = t.title;
+  document.getElementById('instructions').textContent = t.instructions;
+  document.getElementById('toggleStepsBtn').textContent = t.steps;
+  document.querySelector('.controls small').textContent = t.shortcuts;
   document.getElementById('parseBtn').textContent = t.parse;
   document.getElementById('clearBtn').textContent = t.clear;
   document.getElementById('examplesToggle').textContent = "📚 " + t.examples;
