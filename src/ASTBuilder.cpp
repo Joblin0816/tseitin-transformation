@@ -38,25 +38,24 @@ return node;
 
 std::any ASTBuilder::visitImpliesExpr(LogicParser::ImpliesExprContext *ctx) {
 if (ctx->orExpr().size() == 1)
-return visit(ctx->orExpr(0));
+        return visit(ctx->orExpr(0));
 
+    // Build right-associative: p → (q → r)
+    int n = ctx->orExpr().size();
+    auto right = std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(n - 1)));
 
-auto node = std::make_shared<ASTNode>();
-node->type = "Implies";
-
-node->start = ctx->getStart()->getStartIndex();
-node->end   = ctx->getStop()->getStopIndex();
-
-node->children.push_back(
-    std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(0)))
-);
-node->children.push_back(
-    std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(1)))
-);
-
-return node;
-
-
+    for (int i = n - 2; i >= 0; --i) {
+        auto node = std::make_shared<ASTNode>();
+        node->type = "Implies";
+        node->start = ctx->orExpr(i)->getStart()->getStartIndex();
+        node->end   = ctx->orExpr(n - 1)->getStop()->getStopIndex();
+        node->children.push_back(
+            std::any_cast<std::shared_ptr<ASTNode>>(visit(ctx->orExpr(i)))
+        );
+        node->children.push_back(right);
+        right = node;
+    }
+    return right;
 }
 
 /* ---------- OR (BINARY TREE) ---------- */
